@@ -16,6 +16,9 @@ This [napari] plugin was generated with [Cookiecutter] using with [@napari]'s [c
 
 ## Installation
 
+You can install `napari-folder-browser` from within napari by clicking menu `Plugins > Install/uninstall Plugins...` and entering here:
+![img.png](https://github.com/haesleinhuepf/napari-folder-browser/raw/main/docs/install.png)
+
 You can install `napari-folder-browser` via [pip]:
 
     pip install napari-folder-browser
