@@ -8,7 +8,7 @@
 
 Browse folders of images and open them using double-click or <ENTER>. You can also navigate through the list using arrow up/down keys.
 
-![](docs/napari-folder-browser.gif)
+![](https://github.com/haesleinhuepf/napari-folder-browser/raw/main/docs/napari-folder-browser.gif)
 
 ----------------------------------
 
