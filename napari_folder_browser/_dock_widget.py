@@ -8,6 +8,7 @@ from magicgui.types import FileDialogMode
 from os import listdir
 from os.path import isfile, join
 import fnmatch
+from napari_tools_menu import register_dock_widget
 
 class MyQLineEdit(QLineEdit):
     keyup = Signal()
@@ -22,6 +23,7 @@ class MyQLineEdit(QLineEdit):
             return
         super().keyPressEvent(event)
 
+@register_dock_widget(menu="Utilities > Folder browser")
 class FolderBrowser(QWidget):
     def __init__(self, napari_viewer):
         super().__init__()
