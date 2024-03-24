@@ -2,22 +2,18 @@ from pathlib import Path
 from PyQt5.QtCore import QModelIndex
 from PyQt5.QtWidgets import QAction
 from napari_plugin_engine import napari_hook_implementation
-from numpy import stack
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QMenu,
     QWidget,
-    QHBoxLayout,
     QVBoxLayout,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QLabel,
     QFileDialog,
     QTreeView,
 )
-from qtpy.QtCore import QPoint, Qt, QDir, Signal
+from qtpy.QtCore import QPoint, Qt, QDir
 from qtpy.QtGui import QFileSystemModel
+from napari.viewer import Viewer
 from magicgui.widgets import FileEdit
 from magicgui.types import FileDialogMode
 
@@ -26,26 +22,29 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from qtpy.QtCore import QModelIndex
 
-from os import listdir
-from os.path import isfile, join
-import fnmatch
 from napari_tools_menu import register_dock_widget
 
-class MyQLineEdit(QLineEdit):
-    keyup = Signal()
-    keydown = Signal()
+# TODO: Probably don't need this stuff
+# class MyQLineEdit(QLineEdit):
+#     keyup = Signal()
+#     keydown = Signal()
 
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Up:
-            self.keyup.emit()
-            return
-        elif event.key() == Qt.Key_Down:
-            self.keydown.emit()
-            return
-        super().keyPressEvent(event)
+#     def keyPressEvent(self, event):
+#         if event.key() == Qt.Key_Up:
+#             self.keyup.emit()
+#             return
+#         elif event.key() == Qt.Key_Down:
+#             self.keydown.emit()
+#             return
+#         super().keyPressEvent(event)
 
 @register_dock_widget(menu="Utilities > Folder browser")
 class FolderBrowser(QWidget):
+    viewer: Viewer
+    current_directory: Path
+    file_system_model: QFileSystemModel
+    tree_view: QTreeView
+    
     """Main Widget for the Folder Browser Dock Widget
     
     The napari viewer is passed in as an argument to the constructor
@@ -58,15 +57,30 @@ class FolderBrowser(QWidget):
 
         # --------------------------------------------
         # Directory selection
-        top_level_directory: Path = Path(QFileDialog.getExistingDirectory(self, "Select Directory"))
+        self.current_directory: Path = Path(QFileDialog.getExistingDirectory(self, "Select Directory"))
+        self.layout().addWidget(QLabel("Directory"))
+        filename_edit = FileEdit(
+            mode=FileDialogMode.EXISTING_DIRECTORY,
+            value=self.current_directory,
+        )
+        self.layout().addWidget(filename_edit.native)
 
-        # Create file system model & tree view
+        def directory_changed(*_) -> None:
+            self.current_directory = Path(filename_edit.value)
+            self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
+            # TODO: Check how we can implement search?
+            # self.all_files = [f for f in listdir(self.current_directory) if isfile(join(self.current_directory, f))]
+
+        filename_edit.line_edit.changed.connect(directory_changed)
+
+        # --------------------------------------------
+        # Tree view and image selection
         self.file_system_model = QFileSystemModel()
         self.file_system_model.setRootPath(QDir.rootPath())
 
         self.tree_view = QTreeView()
         self.tree_view.setModel(self.file_system_model)
-        self.tree_view.setRootIndex(self.file_system_model.index(str(top_level_directory)))
+        self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
         
         # Enable selecting multiple files for stack viewing (with shift/ctrl)
         self.tree_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -138,20 +152,7 @@ class FolderBrowser(QWidget):
 
         self.viewer.open(fs_paths, stack=is_stack)
 
-        # self.layout().addWidget(QLabel("Directory"))
-        # filename_edit = FileEdit(
-        #     mode=FileDialogMode.EXISTING_DIRECTORY,
-        #     value=top_level_directory,
-        # )
-        # self.layout().addWidget(filename_edit.native)
 
-        # def directory_changed(*_) -> None:
-        #     self.current_directory = str(filename_edit.value.absolute()).replace("\\", "/").replace("//", "/")
-        #     self.all_files = [f for f in listdir(self.current_directory) if isfile(join(self.current_directory, f))]
-
-        #     text_changed() # update shown list
-
-        # filename_edit.line_edit.changed.connect(directory_changed)
 
         # --------------------------------------------
         #  File filter
@@ -205,10 +206,10 @@ class FolderBrowser(QWidget):
         # directory_changed() # run once to initialize
 
 
-def _add_result(results, file_name):
-    item = QListWidgetItem(file_name)
-    item.file_name = file_name
-    results.addItem(item)
+# def _add_result(results, file_name):
+#     item = QListWidgetItem(file_name)
+#     item.file_name = file_name
+#     results.addItem(item)
 
 
 @napari_hook_implementation
