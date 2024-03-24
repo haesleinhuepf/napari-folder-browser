@@ -1,3 +1,4 @@
+from fileinput import filename
 from pathlib import Path
 from PyQt5.QtCore import QModelIndex
 from PyQt5.QtWidgets import QAction
@@ -42,6 +43,7 @@ from napari_tools_menu import register_dock_widget
 class FolderBrowser(QWidget):
     viewer: Viewer
     current_directory: Path
+    folder_chooser: FileEdit
     file_system_model: QFileSystemModel
     tree_view: QTreeView
     
@@ -59,19 +61,19 @@ class FolderBrowser(QWidget):
         # Directory selection
         self.current_directory: Path = Path(QFileDialog.getExistingDirectory(self, "Select Directory"))
         self.layout().addWidget(QLabel("Directory"))
-        filename_edit = FileEdit(
+        self.folder_chooser = FileEdit(
             mode=FileDialogMode.EXISTING_DIRECTORY,
             value=self.current_directory,
         )
-        self.layout().addWidget(filename_edit.native)
+        self.layout().addWidget(self.folder_chooser.native)
 
         def directory_changed(*_) -> None:
-            self.current_directory = Path(filename_edit.value)
+            self.current_directory = Path(self.folder_chooser.value)
             self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
             # TODO: Check how we can implement search?
             # self.all_files = [f for f in listdir(self.current_directory) if isfile(join(self.current_directory, f))]
 
-        filename_edit.line_edit.changed.connect(directory_changed)
+        self.folder_chooser.line_edit.changed.connect(directory_changed)
 
         # --------------------------------------------
         # Tree view and image selection
@@ -109,6 +111,7 @@ class FolderBrowser(QWidget):
         file_path: str = self.file_system_model.filePath(index)
         if self.file_system_model.isDir(index):
             self.tree_view.setRootIndex(index)
+            self.folder_chooser.value = file_path
         else:
             print(f"Opening file: {file_path}")
             self.viewer.open(file_path)
