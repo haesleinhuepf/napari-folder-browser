@@ -78,6 +78,8 @@ target/
 # written by setuptools_scm
 */_version.py
 
+# Editor and environment files
+.vscode/
 /venv/
 /.idea/
 temp.cl
