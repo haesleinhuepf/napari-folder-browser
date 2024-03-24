@@ -37,8 +37,6 @@ napari
 ```
 
 ### Conda
-TODO(MS): Test more minimal fresh environment
-
 If you prefer to use conda, you can create a new environment with the following command:
 ```bash
 conda env create -f environment.yml

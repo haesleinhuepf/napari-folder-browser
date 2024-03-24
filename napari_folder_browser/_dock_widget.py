@@ -1,18 +1,19 @@
-from fileinput import filename
 from pathlib import Path
 from PyQt5.QtCore import QModelIndex
 from PyQt5.QtWidgets import QAction
 from napari_plugin_engine import napari_hook_implementation
 from qtpy.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QMenu,
     QWidget,
     QVBoxLayout,
     QLabel,
     QFileDialog,
+    QLineEdit,
     QTreeView,
 )
-from qtpy.QtCore import QPoint, Qt, QDir
+from qtpy.QtCore import QPoint, QRegExp, QSortFilterProxyModel, Qt, QDir
 from qtpy.QtGui import QFileSystemModel
 from napari.viewer import Viewer
 from magicgui.widgets import FileEdit
@@ -25,32 +26,40 @@ if TYPE_CHECKING:
 
 from napari_tools_menu import register_dock_widget
 
-# TODO: Probably don't need this stuff
-# class MyQLineEdit(QLineEdit):
-#     keyup = Signal()
-#     keydown = Signal()
 
-#     def keyPressEvent(self, event):
-#         if event.key() == Qt.Key_Up:
-#             self.keyup.emit()
-#             return
-#         elif event.key() == Qt.Key_Down:
-#             self.keydown.emit()
-#             return
-#         super().keyPressEvent(event)
+class DirectoryFriendlyFilterProxyModel(QSortFilterProxyModel):
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        """Accepts directories and files that pass the base class's filter
+        
+        Note: This custom proxy ensures that we can search for filenames and keep the directories
+        in the tree view
+        """
+        # Get the index for the row
+        model = self.sourceModel()
+        index = model.index(source_row, 0, source_parent)
+
+        # Always accept directories
+        if model.isDir(index):
+            return True
+
+        # For files, use the base class's implementation
+        return super().filterAcceptsRow(source_row, source_parent)
+
 
 @register_dock_widget(menu="Utilities > Folder browser")
 class FolderBrowser(QWidget):
-    viewer: Viewer
-    current_directory: Path
-    folder_chooser: FileEdit
-    file_system_model: QFileSystemModel
-    tree_view: QTreeView
-    
     """Main Widget for the Folder Browser Dock Widget
     
     The napari viewer is passed in as an argument to the constructor
     """
+    viewer: Viewer
+    current_directory: Path
+    folder_chooser: FileEdit
+    file_system_model: QFileSystemModel
+    proxy_model: DirectoryFriendlyFilterProxyModel
+    search_field: QLineEdit
+    tree_view: QTreeView
+
     def __init__(self, napari_viewer):
         super().__init__()
         self.viewer = napari_viewer
@@ -70,18 +79,32 @@ class FolderBrowser(QWidget):
         def directory_changed(*_) -> None:
             self.current_directory = Path(self.folder_chooser.value)
             self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
-            # TODO: Check how we can implement search?
-            # self.all_files = [f for f in listdir(self.current_directory) if isfile(join(self.current_directory, f))]
 
         self.folder_chooser.line_edit.changed.connect(directory_changed)
 
         # --------------------------------------------
-        # Tree view and image selection
+        # File system abstraction with proxy for search filtering
         self.file_system_model = QFileSystemModel()
         self.file_system_model.setRootPath(QDir.rootPath())
+        self.proxy_model = DirectoryFriendlyFilterProxyModel()
+        self.proxy_model.setSourceModel(self.file_system_model)
 
+        # Create search box and connect to proxy model
+        self.layout().addWidget(QLabel("File filter"))
+        self.search_field = QLineEdit("*")
+        # Note: We should agree on the best regex interaction to provide here
+        def update_filder(self, text: str) -> None:
+            self.proxy_model.setFilterRegExp(QRegExp(text, Qt.CaseInsensitive))
+        self.search_field.textChanged.connect(update_filder)
+        search_widget = QWidget()
+        search_widget.setLayout(QHBoxLayout())
+        search_widget.layout().addWidget(QLabel("Search:"))
+        search_widget.layout().addWidget(self.search_field)
+        self.layout().addWidget(search_widget)
+
+        # Tree view and image selection
         self.tree_view = QTreeView()
-        self.tree_view.setModel(self.file_system_model)
+        self.tree_view.setModel(self.proxy_model)
         self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
         
         # Enable selecting multiple files for stack viewing (with shift/ctrl)
@@ -102,7 +125,6 @@ class FolderBrowser(QWidget):
         
         self.layout().addWidget(self.tree_view)
 
-
     def tree_double_click(self, index: QModelIndex) -> None:
         """Action on double click in the tree model
         
@@ -115,7 +137,6 @@ class FolderBrowser(QWidget):
         else:
             print(f"Opening file: {file_path}")
             self.viewer.open(file_path)
-
 
     def show_context_menu(self, position: QPoint) -> None:
         """Show a context menu when right-clicking in the tree view"""
@@ -130,7 +151,6 @@ class FolderBrowser(QWidget):
         )
         # Show the menu at the cursor position
         menu.exec_(self.tree_view.viewport().mapToGlobal(position))
-
 
     def open_multi_selection(self, is_stack: bool) -> None:
         """Open multiple files in the viewer
@@ -156,72 +176,13 @@ class FolderBrowser(QWidget):
         self.viewer.open(fs_paths, stack=is_stack)
 
 
-
-        # --------------------------------------------
-        #  File filter
-        # self.layout().addWidget(QLabel("File filter"))
-        # seach_field = MyQLineEdit("*")
-        # results = QListWidget()
-
-        # # update search
-        # def text_changed(*args, **kwargs):
-        #     search_string = seach_field.text()
-
-        #     results.clear()
-        #     for file_name in self.all_files:
-        #         if fnmatch.fnmatch(file_name, search_string):
-        #             _add_result(results, file_name)
-        #     results.sortItems()
-
-        # # navigation in the list
-        # def key_up():
-        #     if results.currentRow() > 0:
-        #         results.setCurrentRow(results.currentRow() - 1)
-
-        # def key_down():
-        #     if results.currentRow() < results.count() - 1:
-        #         results.setCurrentRow(results.currentRow() + 1)
-
-        # seach_field.keyup.connect(key_up)
-        # seach_field.keydown.connect(key_down)
-        # seach_field.textChanged.connect(text_changed)
-
-        # # open file on ENTER and double click
-        # def item_double_clicked():
-        #     item = results.currentItem()
-        #     print("opening", item.file_name)
-        #     self.viewer.open(join(self.current_directory, item.file_name))
-
-        # seach_field.returnPressed.connect(item_double_clicked)
-        # #results.itemDoubleClicked.connect(item_double_clicked)
-        # results.itemActivated.connect(item_double_clicked)
-
-        # self.setLayout(QVBoxLayout())
-
-        # w = QWidget()
-        # w.setLayout(QHBoxLayout())
-        # w.layout().addWidget(QLabel("Search:"))
-        # w.layout().addWidget(seach_field)
-        # self.layout().addWidget(w)
-
-        # self.layout().addWidget(results)
-
-        # directory_changed() # run once to initialize
-
-
-# def _add_result(results, file_name):
-#     item = QListWidgetItem(file_name)
-#     item.file_name = file_name
-#     results.addItem(item)
-
-
 @napari_hook_implementation
 def napari_experimental_provide_dock_widget():
     return [FolderBrowser]
 
 
 if __name__ == "__main__":
-    # Just for running in Debugger
+    # Simple test main function to run the widget in the debugger
     import napari
 
     viewer = napari.Viewer()
