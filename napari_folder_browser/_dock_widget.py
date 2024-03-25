@@ -1,6 +1,4 @@
 from pathlib import Path
-from PyQt5.QtCore import QModelIndex
-from PyQt5.QtWidgets import QAction
 from napari_plugin_engine import napari_hook_implementation
 from qtpy.QtWidgets import (
     QAbstractItemView,
@@ -13,7 +11,14 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QTreeView,
 )
-from qtpy.QtCore import QPoint, QRegExp, QSortFilterProxyModel, Qt, QDir
+from qtpy.QtCore import  (
+    QDir,
+    QModelIndex,
+    QPoint,
+    QRegExp,
+    QSortFilterProxyModel,
+    Qt,
+)
 from qtpy.QtGui import QFileSystemModel
 from napari.viewer import Viewer
 from magicgui.widgets import FileEdit
@@ -108,7 +113,6 @@ class FolderBrowser(QWidget):
         # Tree view and image selection
         self.tree_view = QTreeView()
         self.tree_view.setModel(self.proxy_model)
-        # self.tree_view.setRootIndex(self.file_system_model.index(self.current_directory.as_posix()))
         self.tree_view.setRootIndex(
             self.proxy_model.mapFromSource(
                 self.file_system_model.index(current_directory.as_posix())
@@ -154,11 +158,11 @@ class FolderBrowser(QWidget):
     def __show_context_menu(self, position: QPoint) -> None:
         """Show a context menu when right-clicking in the tree view"""
         menu = QMenu()
-        open_multiple_action: QAction = menu.addAction("Open multiple files")
+        open_multiple_action = menu.addAction("Open multiple files")
         open_multiple_action.triggered.connect(
             lambda: self.__open_multi_selection(is_stack=False)
         )
-        open_as_stack_action: QAction = menu.addAction("Open as stack")
+        open_as_stack_action = menu.addAction("Open as stack")
         open_as_stack_action.triggered.connect(
             lambda: self.__open_multi_selection(is_stack=True)
         )
@@ -178,8 +182,8 @@ class FolderBrowser(QWidget):
 
         # We simply ignore folders in the multi-selection
         fs_paths: list[str] = [
-            self.file_system_model.filePath(index) for index in indices
-            if not self.file_system_model.isDir(index) and index.column() == 0
+            self.file_system_model.filePath(self.proxy_model.mapToSource(index)) for index in indices
+            if not self.file_system_model.isDir(self.proxy_model.mapToSource(index)) and index.column() == 0
         ]
 
         # Nothing to do when there is no file selected
