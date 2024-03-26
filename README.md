@@ -28,6 +28,21 @@ You can install `napari-folder-browser` via [pip]:
 Contributions are very welcome. Tests can be run with [tox], please ensure
 the coverage at least stays the same before you submit a pull request.
 
+## Development
+### Test the plugin in Napari
+Simply use pip install and run napari to test the plugin in the same environment:
+```bash
+pip install -e .
+napari
+```
+
+### Conda
+If you prefer to use conda, you can create a new environment with the following command:
+```bash
+conda env create -f environment.yml
+conda activate napari-folder-browser
+```
+
 ## License
 
 Distributed under the terms of the [BSD-3] license,
