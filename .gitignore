@@ -83,3 +83,7 @@ target/
 /venv/
 /.idea/
 temp.cl
+
+deploy.bat
+
+
